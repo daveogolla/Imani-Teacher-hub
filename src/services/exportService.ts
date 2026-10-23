@@ -31,7 +31,7 @@ export const exportService = {
       tableHeader: true,
       children: tableHeaders.map(text => (
         new TableCell({
-          shading: { fill: '0D5C3A' }, // KICD Forest Green
+          shading: { fill: '0D5C3A' }, // CBC HUB Forest Green
           children: [
             new Paragraph({
               alignment: AlignmentType.CENTER,
@@ -65,7 +65,7 @@ export const exportService = {
           }),
           // Lsn
           new TableCell({
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `${row.lesson}`, size: 16 })] })],
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: row.lesson ? `${row.lesson}` : '', size: 16 })] })],
             borders: { top: primaryBorder, bottom: primaryBorder, left: primaryBorder, right: primaryBorder }
           }),
           // Strand
@@ -171,6 +171,7 @@ export const exportService = {
         {
           properties: {
             page: {
+              size: { width: 16838, height: 11906, orientation: 'landscape' },
               margin: { top: 720, bottom: 720, left: 720, right: 720 }
             }
           },
@@ -218,7 +219,7 @@ export const exportService = {
               alignment: AlignmentType.CENTER,
               children: [
                 new TextRun({
-                  text: 'KENYA INSTITUTE OF CURRICULUM DEVELOPMENT (KICD) STANDARDS',
+                  text: 'ORIGINAL TEACHING DRAFT — REVIEW AGAINST CURRENT CURRICULUM',
                   italics: true,
                   size: 18,
                   color: '555555'
@@ -236,7 +237,7 @@ export const exportService = {
               alignment: AlignmentType.CENTER,
               children: [
                 new TextRun({
-                  text: scheme.documentType === 'lesson_plan'
+                  text: scheme.documentType === 'revision' ? 'CBE / KCSE REVISION DRAFT' : scheme.documentType === 'lesson_plan'
                     ? 'COMPETENCY BASED CURRICULUM (CBC) LESSON PLAN'
                     : 'COMPETENCY BASED CURRICULUM (CBC/CBE) SCHEMES OF WORK',
                   bold: true,
@@ -289,6 +290,7 @@ export const exportService = {
               ],
               spacing: { after: 280 }
             }),
+            new Paragraph({text: `Reference: ${scheme.bookReference || 'Teacher-selected curriculum design'} | Additional breaks: ${scheme.additionalBreaks || 'None'}`,spacing:{after:140}}),
             ...signOffParagraphs,
             // Page break before the structured scheme table
             new Paragraph({
@@ -339,7 +341,7 @@ export const exportService = {
     // PAGE 1: COVER PAGE
     // ----------------------------------------------------
     // Border frame
-    doc.setDrawColor(13, 92, 58); // KICD Forest Green
+    doc.setDrawColor(13, 92, 58); // CBC HUB Forest Green
     doc.setLineWidth(1.2);
     doc.rect(10, 10, pageWidth - 20, pageHeight - 20);
 
@@ -357,7 +359,7 @@ export const exportService = {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(90, 90, 90);
-    doc.text('MINISTRY OF EDUCATION · KENYA INSTITUTE OF CURRICULUM DEVELOPMENT (KICD)', pageWidth / 2, 31, { align: 'center' });
+    doc.text('CBC HUB · TEACHER PREPARATION WORKSPACE', pageWidth / 2, 31, { align: 'center' });
 
     // School Name Banner
     doc.setFontSize(22);
@@ -368,7 +370,7 @@ export const exportService = {
     // Document Title
     doc.setFontSize(15);
     doc.setTextColor(30, 30, 30);
-    const docTypeLabel = scheme.documentType === 'lesson_plan'
+    const docTypeLabel = scheme.documentType === 'revision' ? 'CBE / KCSE REVISION DRAFT' : scheme.documentType === 'lesson_plan'
       ? 'COMPETENCY BASED CURRICULUM (CBC) LESSON PLAN'
       : 'COMPETENCY BASED CURRICULUM (CBC/CBE) SCHEMES OF WORK';
     doc.text(docTypeLabel, pageWidth / 2, 55, { align: 'center' });
@@ -406,12 +408,15 @@ export const exportService = {
     doc.text(`Term Start Date:  ${scheme.termStartDate}`, rightX, y);
 
     y += 7;
-    doc.text(`Curriculum Standard:  KICD CBC / CBE Standard`, leftX, y);
+    doc.text(`Curriculum Standard:  CBC / CBE teacher-review draft`, leftX, y);
     doc.text(`Half-Term Break:  ${scheme.halfTermDate}`, rightX, y);
 
     y += 7;
     doc.text(`Paging:  Continuous Pagination Enforced`, leftX, y);
     doc.text(`End Term Closing:  ${scheme.closingDate}`, rightX, y);
+
+    doc.setFontSize(8);
+    doc.text(doc.splitTextToSize(`Reference: ${scheme.bookReference || 'Teacher-selected curriculum design'}`,pageWidth-50),leftX,133);
 
     // Administrative Approvals Section
     y = 145;
@@ -448,7 +453,7 @@ export const exportService = {
       doc.setFont('helvetica', 'normal');
       doc.text('Sign: ____________________', col2, y + 7);
       doc.text('Date: ____________________', col2, y + 14);
-      doc.text('Remarks: Verified syllabus pacing', col2, y + 21);
+      doc.text('Remarks: Curriculum pacing for review', col2, y + 21);
     }
 
     // Col 3: Principal
@@ -490,7 +495,7 @@ export const exportService = {
 
     const tableRows = scheme.rows.map(r => ({
       week: String(r.week),
-      lesson: String(r.lesson),
+      lesson: r.lesson ? String(r.lesson) : '',
       strand: r.strand,
       subStrand: r.subStrand,
       specificOutcomes: r.specificOutcomes,
@@ -512,7 +517,7 @@ export const exportService = {
         overflow: 'linebreak'
       },
       headStyles: {
-        fillColor: [13, 92, 58], // KICD Forest Green
+        fillColor: [13, 92, 58], // CBC HUB Forest Green
         textColor: 255,
         fontStyle: 'bold',
         fontSize: 8,
@@ -532,7 +537,7 @@ export const exportService = {
       margin: { top: 20, bottom: 20, left: 10, right: 10 },
       didDrawPage: (data) => {
         // Draw custom header on table pages
-        const currentPg = data.pageNumber;
+        const currentPg = doc.getNumberOfPages();
         doc.setFontSize(8.5);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(80, 80, 80);
@@ -552,7 +557,7 @@ export const exportService = {
         doc.setFontSize(8);
         doc.setTextColor(110, 110, 110);
         doc.text(
-          `Document: CBC HUB Kenya · KICD Syllabus Standards · Downloaded via M-Pesa Ksh. 20 (0707423879)`,
+          `Document: CBC HUB Kenya · AI draft — teacher review required · Downloaded via M-Pesa Ksh. 15 (0707423879)`,
           10,
           pageHeight - 8
         );
@@ -564,6 +569,14 @@ export const exportService = {
         );
       }
     });
+
+    const pageCount=doc.getNumberOfPages();
+    for(let page=1;page<=pageCount;page++) {
+      doc.setPage(page);
+      doc.setFillColor(255,255,255);doc.rect(pageWidth-60,pageHeight-14,55,12,'F');
+      doc.setFontSize(8);doc.setTextColor(100,100,100);
+      doc.text(`Page ${page} of ${pageCount}`,pageWidth-10,pageHeight-8,{align:'right'});
+    }
 
     const fileName = `CBC_HUB_${scheme.grade.replace(/\s+/g, '_')}_${scheme.subject.replace(/[^a-zA-Z0-9]/g, '_')}_Term${scheme.term}.pdf`;
     doc.save(fileName);

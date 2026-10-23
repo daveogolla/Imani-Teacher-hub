@@ -680,7 +680,7 @@ export const CURRICULUM_DATABASE: Record<GradeLevel, SubjectCurriculum[]> = {
 export const KENYAN_OFFICIAL_CALENDAR_2026 = [
   {
     id: 'cal-1',
-    title: 'Term 1 Official Opening',
+    title: 'Term 1 Opening (sample date)',
     date: '2026-01-05',
     category: 'term_start' as const,
     term: 1,
@@ -705,7 +705,7 @@ export const KENYAN_OFFICIAL_CALENDAR_2026 = [
   },
   {
     id: 'cal-4',
-    title: 'Term 2 Official Opening',
+    title: 'Term 2 Opening (sample date)',
     date: '2026-04-27',
     category: 'term_start' as const,
     term: 2,

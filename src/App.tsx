@@ -8,7 +8,6 @@ import {
   MpesaReceipt 
 } from './types';
 import { storageService } from './services/storageService';
-import { exportService } from './services/exportService';
 import { Header } from './components/Header';
 import { Navigation, NavTab } from './components/Navigation';
 import { Dashboard } from './components/Dashboard';
@@ -34,7 +33,7 @@ export default function App() {
   const [generatorGrade, setGeneratorGrade] = useState<GradeLevel>('Grade 8');
   const [generatorSubject, setGeneratorSubject] = useState<string | undefined>(undefined);
   const [generatorStrand, setGeneratorStrand] = useState<string | undefined>(undefined);
-  const [generatorDocType, setGeneratorDocType] = useState<'scheme' | 'lesson_plan'>('scheme');
+  const [generatorDocType, setGeneratorDocType] = useState<'scheme' | 'lesson_plan' | 'revision'>('scheme');
 
   // App Data State (Local Storage)
   const [userProfile, setUserProfile] = useState<UserProfile>(() => storageService.getUserProfile());
@@ -87,56 +86,8 @@ export default function App() {
     const isDoc = typeof docOrTitle !== 'string';
     const itemTitle = isDoc ? docOrTitle.title : docOrTitle;
 
-    // Check if user already paid for this item
-    const alreadyUnlocked = storageService.isItemUnlocked(itemTitle);
-
-    if (alreadyUnlocked) {
-      // Execute download immediately
-      if (isDoc) {
-        if (format === 'docx') exportService.downloadDocx(docOrTitle);
-        else exportService.exportToPdf(docOrTitle);
-      } else {
-        // Generate placeholder scheme on the fly for syllabus material
-        const fallbackScheme: SchemeDocument = {
-          id: `doc-${Date.now()}`,
-          title: itemTitle,
-          documentType: 'revision',
-          schoolName: userProfile.schoolName || 'MOI FORCES ACADEMY',
-          teacherName: userProfile.teacherName || 'Mwalimu Otieno',
-          tscNumber: userProfile.tscNumber || 'TSC-784291',
-          grade: 'KCSE Revision',
-          subject: itemTitle,
-          term: 1,
-          year: 2026,
-          lessonsPerWeek: 5,
-          termStartDate: '05/01/2026',
-          halfTermDate: '18/02/2026 - 22/02/2026',
-          closingDate: '03/04/2026',
-          includeHodSign: true,
-          includeDeputySign: true,
-          includePrincipalSign: true,
-          rows: [
-            {
-              id: 'row-1',
-              week: 1,
-              lesson: 1,
-              strand: 'Topical Revision & Past Paper Drill',
-              subStrand: 'KNEC Examination Structure & Rubrics',
-              specificOutcomes: 'Learners analyze question patterns and high-yield scoring points.',
-              inquiryQuestions: 'What are common errors in national exam responses?',
-              learningExperiences: 'Working through past paper questions with marking scheme analysis.',
-              coreCompetencies: 'Problem solving, Self-efficacy',
-              resources: 'KNEC Past Papers, KLB Revision Guide, Examiner Reports',
-              assessment: 'Structured Questions & Marking Scheme Analysis',
-              reflection: 'Concept mastery consolidated.'
-            }
-          ],
-          createdAt: new Date().toISOString()
-        };
-        if (format === 'docx') exportService.downloadDocx(fallbackScheme);
-        else exportService.exportToPdf(fallbackScheme);
-      }
-      return;
+    if(!isDoc) {
+      setGeneratorSubject(itemTitle);setGeneratorDocType('revision');setActiveTab('generator');return;
     }
 
     // Set pending download and open M-PESA payment modal
@@ -150,67 +101,15 @@ export default function App() {
   };
 
   const handleMpesaVerified = () => {
-    if (!pendingDownload) return;
-
-    // Refresh payments list from storage
-    setPayments(storageService.getPayments());
-
-    if (pendingDownload.scheme) {
-      if (pendingDownload.format === 'docx') {
-        exportService.downloadDocx(pendingDownload.scheme);
-      } else {
-        exportService.exportToPdf(pendingDownload.scheme);
-      }
-    } else if (pendingDownload.customTitle) {
-      const fallbackScheme: SchemeDocument = {
-        id: `doc-${Date.now()}`,
-        title: pendingDownload.customTitle,
-        documentType: 'revision',
-        schoolName: userProfile.schoolName || 'MOI FORCES ACADEMY',
-        teacherName: userProfile.teacherName || 'Mwalimu Otieno',
-        tscNumber: userProfile.tscNumber || 'TSC-784291',
-        grade: 'KCSE Revision',
-        subject: pendingDownload.customTitle,
-        term: 1,
-        year: 2026,
-        lessonsPerWeek: 5,
-        termStartDate: '05/01/2026',
-        halfTermDate: '18/02/2026 - 22/02/2026',
-        closingDate: '03/04/2026',
-        includeHodSign: true,
-        includeDeputySign: true,
-        includePrincipalSign: true,
-        rows: [
-          {
-            id: 'row-1',
-            week: 1,
-            lesson: 1,
-            strand: 'Topical Revision & Past Paper Drill',
-            subStrand: 'KNEC Examination Structure & Rubrics',
-            specificOutcomes: 'Learners analyze question patterns and high-yield scoring points.',
-            inquiryQuestions: 'What are common errors in national exam responses?',
-            learningExperiences: 'Working through past paper questions with marking scheme analysis.',
-            coreCompetencies: 'Problem solving, Self-efficacy',
-            resources: 'KNEC Past Papers, KLB Revision Guide, Examiner Reports',
-            assessment: 'Structured Questions & Marking Scheme Analysis',
-            reflection: 'Concept mastery consolidated.'
-          }
-        ],
-        createdAt: new Date().toISOString()
-      };
-      if (pendingDownload.format === 'docx') {
-        exportService.downloadDocx(fallbackScheme);
-      } else {
-        exportService.exportToPdf(fallbackScheme);
-      }
-    }
+    // Downloads stay blocked until a merchant-backed verification flow exists.
+    setMpesaModalOpen(false);
   };
 
   const handleNavigateToGenerator = (
     grade?: GradeLevel, 
     subject?: string, 
     strand?: string, 
-    docType: 'scheme' | 'lesson_plan' = 'scheme'
+    docType: 'scheme' | 'lesson_plan' | 'revision' = 'scheme'
   ) => {
     if (grade) setGeneratorGrade(grade);
     if (subject) setGeneratorSubject(subject);
@@ -292,7 +191,7 @@ export default function App() {
       case 'calendar':
         return (
           <AcademicCalendar
-            events={calendarEvents}
+            events={[...calendarEvents,...contentIdeas.filter(idea=>idea.scheduledDate && idea.status==='Scheduled').map(idea=>({id:`scheduled-${idea.id}`,title:idea.title,date:idea.scheduledDate!,category:'school_event' as const,description:`Scheduled content · ${idea.subject} · ${idea.progress}% complete`}))]}
             onEventsChange={(newEvents) => setCalendarEvents(newEvents)}
           />
         );
@@ -351,6 +250,7 @@ export default function App() {
         <Navigation
           activeTab={activeTab}
           onTabChange={(tab) => {
+            setSavedSchemes(storageService.getSavedSchemes());
             setActiveTab(tab);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
@@ -358,7 +258,7 @@ export default function App() {
 
       </div>
 
-      {/* M-PESA Ksh. 20 Payment Modal */}
+      {/* M-PESA Ksh. 15 Payment Modal */}
       <MpesaPaymentModal
         isOpen={mpesaModalOpen}
         onClose={() => setMpesaModalOpen(false)}

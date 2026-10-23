@@ -1,3 +1,4 @@
+import { scopedKey } from './storageService';
 import { GradeLevel, SubjectCurriculum, SchemeDocument, ContentIdea } from '../types';
 import { CURRICULUM_DATABASE, GRADES_LIST } from '../data/kenyanCurriculum';
 
@@ -29,7 +30,7 @@ const RECENT_SEARCHES_KEY = 'cbchub_recent_searches';
 export const searchService = {
   getRecentSearches(): string[] {
     try {
-      const data = localStorage.getItem(RECENT_SEARCHES_KEY);
+      const data = localStorage.getItem(scopedKey(RECENT_SEARCHES_KEY));
       return data ? JSON.parse(data) : [
         'Pre-Technical Drawing',
         'Taxation PAYE',
@@ -49,7 +50,7 @@ export const searchService = {
     const clean = query.trim();
     const updated = [clean, ...current.filter(item => item.toLowerCase() !== clean.toLowerCase())].slice(0, 8);
     try {
-      localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
+      localStorage.setItem(scopedKey(RECENT_SEARCHES_KEY), JSON.stringify(updated));
     } catch {
       // ignore
     }
@@ -57,7 +58,7 @@ export const searchService = {
 
   clearRecentSearches(): void {
     try {
-      localStorage.removeItem(RECENT_SEARCHES_KEY);
+      localStorage.removeItem(scopedKey(RECENT_SEARCHES_KEY));
     } catch {
       // ignore
     }
@@ -159,8 +160,8 @@ export const searchService = {
                 subStrand: topic.subStrands[0] || 'Unit 1',
                 specificOutcomes: topic.sampleOutcomes,
                 inquiryQuestions: topic.sampleQuestions,
-                title: `KICD 13-Week Scheme Template: ${grade} ${subj.name}`,
-                description: `Standard KICD CBC Schemes of Work matrix pre-configured for ${topic.strand} with lessons per week and breaks.`,
+                title: `Teaching Scheme Template: ${grade} ${subj.name}`,
+                description: `CBC planning matrix pre-configured for ${topic.strand} with lessons per week and breaks.`,
                 relevanceScore: score + 5
               });
             }

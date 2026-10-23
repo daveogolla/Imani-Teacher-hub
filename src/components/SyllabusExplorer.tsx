@@ -62,7 +62,7 @@ export const SyllabusExplorer: React.FC<SyllabusExplorerProps> = ({
       <div className="rounded-3xl bg-slate-900 dark:bg-slate-900 border border-slate-800 p-6 text-white shadow-lg space-y-3">
         <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
           <GraduationCap className="h-4 w-4" />
-          <span>KICD & KNEC Syllabus Repository</span>
+          <span>Curriculum topic explorer · sample coverage</span>
         </div>
         <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
           Kenyan CBC, CBE & KCSE Revision Syllabus Hub
@@ -139,7 +139,7 @@ export const SyllabusExplorer: React.FC<SyllabusExplorerProps> = ({
           <h2 className="text-base font-bold text-slate-900 dark:text-white">
             {selectedGrade} Curriculum Strands & Materials ({visibleSubjects.length} Areas)
           </h2>
-          <span className="text-xs text-slate-500">M-Pesa Download: Ksh. 20</span>
+          <span className="text-xs text-slate-500">M-Pesa Download: Ksh. 15</span>
         </div>
 
         {visibleSubjects.length === 0 ? (
@@ -215,14 +215,14 @@ export const SyllabusExplorer: React.FC<SyllabusExplorerProps> = ({
                     <button
                       onClick={() => onInitiateMaterialDownload(`${selectedGrade} ${subject.name} Revision Pack`, 'docx')}
                       className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-semibold text-[11px] hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                      title="Download Word (.docx) - Ksh. 20"
+                      title="Download Word (.docx) - Ksh. 15"
                     >
                       Word · Ksh 20
                     </button>
                     <button
                       onClick={() => onInitiateMaterialDownload(`${selectedGrade} ${subject.name} Revision Pack`, 'pdf')}
                       className="px-2.5 py-1.5 rounded-lg bg-[#008751] text-white font-semibold text-[11px] hover:bg-[#007043] transition-colors"
-                      title="Download PDF (.pdf) - Ksh. 20"
+                      title="Download PDF (.pdf) - Ksh. 15"
                     >
                       PDF · Ksh 20
                     </button>

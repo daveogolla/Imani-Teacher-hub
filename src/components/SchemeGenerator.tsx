@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileSpreadsheet, 
   Sparkles, 
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { GradeLevel, SchemeDocument, SchemeRow, UserProfile } from '../types';
 import { GRADES_LIST, CURRICULUM_DATABASE } from '../data/kenyanCurriculum';
+import { buildSchedule } from '../services/schedule';
 import { storageService } from '../services/storageService';
 
 interface SchemeGeneratorProps {
@@ -28,7 +29,7 @@ interface SchemeGeneratorProps {
   initialGrade?: GradeLevel;
   initialSubject?: string;
   initialStrand?: string;
-  initialDocumentType?: 'scheme' | 'lesson_plan';
+  initialDocumentType?: 'scheme' | 'lesson_plan' | 'revision';
   onInitiateDownload: (scheme: SchemeDocument, format: 'docx' | 'pdf') => void;
 }
 
@@ -41,10 +42,10 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
   onInitiateDownload,
 }) => {
   // Form State
-  const [documentType, setDocumentType] = useState<'scheme' | 'lesson_plan'>(initialDocumentType);
-  const [schoolName, setSchoolName] = useState(userProfile.schoolName || 'MOI FORCES ACADEMY');
-  const [teacherName, setTeacherName] = useState(userProfile.teacherName || 'Mwalimu Otieno');
-  const [tscNumber, setTscNumber] = useState(userProfile.tscNumber || 'TSC-784291');
+  const [documentType, setDocumentType] = useState<'scheme' | 'lesson_plan' | 'revision'>(initialDocumentType);
+  const [schoolName, setSchoolName] = useState(userProfile.schoolName || '');
+  const [teacherName, setTeacherName] = useState(userProfile.teacherName || '');
+  const [tscNumber, setTscNumber] = useState(userProfile.tscNumber || '');
 
   // Grade Selection & Previous/Next Grade feature
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel>(initialGrade);
@@ -110,91 +111,31 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [previewTab, setPreviewTab] = useState<'table' | 'cover'>('table');
 
-  // Build default rows based on current curriculum strand
-  const generateCurriculumRows = () => {
-    setIsGenerating(true);
-
-    setTimeout(() => {
-      const topics = currentSubjectCurriculum?.topics || [];
-      const primaryTopic = topics[0] || {
-        strand: customTopic || 'General Concepts',
-        subStrands: ['Fundamentals', 'Applications', 'Practical Inquiry', 'Assessment Evaluation'],
-        sampleOutcomes: `By the end of the lesson, the learner should be able to explain core concepts in ${selectedSubject}.`,
-        sampleQuestions: `How does ${selectedSubject} apply to everyday life in Kenya?`
-      };
-
-      const generated: SchemeRow[] = [];
-      const totalWeeks = 13;
-      let lessonCounter = 1;
-
-      for (let wk = 1; wk <= totalWeeks; wk++) {
-        // Special handle for week 7 (Half-term) and week 13 (End Term Exams)
-        if (wk === 7) {
-          generated.push({
-            id: `row-wk${wk}-1`,
-            week: wk,
-            lesson: 1,
-            strand: 'MID-TERM ASSESSMENT & BREAK',
-            subStrand: 'Continuous Assessment Test (CAT 1)',
-            specificOutcomes: 'Assess learner competency mastery of strands covered in weeks 1 through 6.',
-            inquiryQuestions: 'Which concepts require consolidation?',
-            learningExperiences: 'Administering standardized CAT assessment paper; revision of test items.',
-            coreCompetencies: 'Critical thinking, Self-efficacy',
-            resources: 'Assessment papers, Answer booklets, Scoring rubric',
-            assessment: 'Written Test, Rubric Evaluation',
-            reflection: 'Identify learners requiring remedial support.'
-          });
-          continue;
-        }
-
-        if (wk === 13) {
-          generated.push({
-            id: `row-wk${wk}-1`,
-            week: wk,
-            lesson: 1,
-            strand: 'END TERM EVALUATION & CLOSING',
-            subStrand: 'End of Term Summative Examination',
-            specificOutcomes: 'Evaluate cumulative learning outcomes for Term ' + term + '.',
-            inquiryQuestions: 'How has the learner progressed toward competency benchmarks?',
-            learningExperiences: 'Summative examination, report card generation, academic feedback clinics.',
-            coreCompetencies: 'Problem solving, Reflection',
-            resources: 'KNEC syllabus guidelines, Standardized term test',
-            assessment: 'Summative Assessment, Report Cards',
-            reflection: 'Term syllabus coverage achieved.'
-          });
-          continue;
-        }
-
-        for (let lsn = 1; lsn <= lessonsPerWeek; lsn++) {
-          const subStrandIdx = (wk + lsn) % (primaryTopic.subStrands.length || 1);
-          const subStrandName = primaryTopic.subStrands[subStrandIdx] || 'Practical Inquiry';
-
-          generated.push({
-            id: `row-wk${wk}-lsn${lsn}`,
-            week: wk,
-            lesson: lsn,
-            strand: primaryTopic.strand,
-            subStrand: subStrandName,
-            specificOutcomes: primaryTopic.sampleOutcomes || `By the end of the lesson, the learner should be able to demonstrate mastery of ${subStrandName}.`,
-            inquiryQuestions: primaryTopic.sampleQuestions || `Why is ${subStrandName} important?`,
-            learningExperiences: `Learners in small groups examine realia/digital charts, discuss ${subStrandName}, and present findings to the whole class.`,
-            coreCompetencies: 'Communication and collaboration, Critical thinking, Digital literacy',
-            resources: `KICD Approved Curriculum Design, KLB Top Mark ${selectedSubject}, Local realia, Digital devices`,
-            assessment: 'Oral questioning, Observation checklist, Written exercise',
-            reflection: 'Lesson paced according to competency development.'
-          });
-        }
-      }
-
-      setRows(generated);
-      setIsGenerating(false);
-    }, 400);
+  const [generationError, setGenerationError] = useState('');
+  const [bookReference, setBookReference] = useState('');
+  const [extraBreaks, setExtraBreaks] = useState('');
+  const requestVersion = useRef(0);
+  useEffect(()=>{ requestVersion.current++;setRows([]); },[selectedGrade,selectedSubject,customTopic,selectedStrand,documentType,term,year,lessonsPerWeek,termStartDate,halfTermDate,closingDate,extraBreaks,bookReference]);
+  const generateCurriculumRows = async () => {
+    const version=++requestVersion.current;
+    setIsGenerating(true); setGenerationError('');
+    try {
+      const otherBreaks = extraBreaks.split('\n').filter(line=>line.trim()).map(line=>{
+        const [start,end,...label] = line.split(',').map(p=>p.trim());
+        return {start,end,label:label.join(',') || 'SCHOOL BREAK'};
+      });
+      const half = halfTermDate.split(/\s+to\s+/);
+      const breaks = [...otherBreaks, ...(halfTermDate.trim() ? [{start:half[0],end:half[1]||half[0],label:'HALF-TERM BREAK'}] : [])];
+      // Validate schedule before starting a paid AI request.
+      buildSchedule([{} as SchemeRow],termStartDate,closingDate,lessonsPerWeek,breaks);
+      const response=await fetch('/.netlify/functions/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grade:selectedGrade,subject:selectedSubject,topic:customTopic||selectedStrand,documentType,term,year,bookReference})});
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.error||'Unable to generate a draft.');
+      if(version!==requestVersion.current)throw new Error('Settings changed during generation. Generate again using the current settings.');
+      setRows(documentType==='revision' ? data.rows.map((row:SchemeRow,index:number)=>({...row,id:`revision-${index}`,week:1,lesson:index+1})) : buildSchedule(data.rows,termStartDate,closingDate,lessonsPerWeek,breaks,documentType==='lesson_plan'));
+    }catch(error){setGenerationError(error instanceof Error?error.message:'Generation failed. Please try again.');}
+    finally{setIsGenerating(false);}
   };
-
-  // Generate on initial load
-  useEffect(() => {
-    generateCurriculumRows();
-  }, [selectedGrade, selectedSubject]);
 
   // Navigate to previous grade
   const handlePreviousGrade = () => {
@@ -213,11 +154,11 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
   // Prepare full document object
   const getDocumentObject = (): SchemeDocument => ({
     id: `scheme-${Date.now()}`,
-    title: `${selectedGrade} ${selectedSubject} Schemes of Work - Term ${term}`,
+    title: `${selectedGrade} ${selectedSubject} ${documentType === 'scheme' ? 'Schemes of Work' : documentType === 'lesson_plan' ? 'Lesson Plan' : 'Revision Material'} - Term ${term}`,
     documentType,
-    schoolName: schoolName.trim() || 'MOI FORCES ACADEMY',
-    teacherName: teacherName.trim() || 'Mwalimu Otieno',
-    tscNumber: tscNumber.trim() || 'TSC-784291',
+    schoolName: schoolName.trim() || '',
+    teacherName: teacherName.trim() || '',
+    tscNumber: tscNumber.trim() || '',
     grade: selectedGrade,
     subject: selectedSubject,
     term,
@@ -230,10 +171,13 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
     includeDeputySign,
     includePrincipalSign,
     rows,
+    bookReference,
+    additionalBreaks: extraBreaks,
     createdAt: new Date().toISOString()
   });
 
   const handleDownloadClick = (format: 'docx' | 'pdf') => {
+    if(!rows.length || isGenerating){setGenerationError('Generate a draft before requesting a download.');return;}
     const doc = getDocumentObject();
     // Save to local storage for persistence
     storageService.saveScheme(doc);
@@ -242,6 +186,18 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
 
   return (
     <div className="space-y-6 pb-24">
+      <section className="rounded-2xl border border-amber-200 dark:border-amber-800 p-4 space-y-3 bg-amber-50/60 dark:bg-amber-950/20">
+        <p className="text-sm font-semibold">Original AI drafts · teacher review required</p>
+        <p className="text-xs">Check current KICD curriculum designs before use. Book references guide the draft; CBC HUB does not reproduce or verify every approved textbook.</p>
+        <label className="block text-xs">Document type<select value={documentType} onChange={e=>{setDocumentType(e.target.value as any);setRows([])}} className="block w-full p-2 border rounded-lg mt-1 bg-white dark:bg-slate-950"><option value="scheme">Scheme of work</option><option value="lesson_plan">Lesson plan</option><option value="revision">CBE / KCSE revision</option></select></label>
+        <label className="block text-xs">Subject or learning area<input value={selectedSubject} onChange={e=>setSelectedSubject(e.target.value)} placeholder="Enter any subject" className="block w-full p-2 border rounded-lg mt-1 bg-white dark:bg-slate-950"/></label>
+        <label className="block text-xs">Book title, publisher, edition and pages (optional)<input value={bookReference} onChange={e=>setBookReference(e.target.value)} placeholder="Enter your KICD-approved reference" className="block w-full p-2 border rounded-lg mt-1 bg-white dark:bg-slate-950"/></label>
+        <label className="block text-xs">Additional breaks: one per line, YYYY-MM-DD, YYYY-MM-DD, reason<textarea value={extraBreaks} onChange={e=>setExtraBreaks(e.target.value)} placeholder="2026-03-12, 2026-03-13, School break" className="block w-full p-2 border rounded-lg mt-1 bg-white dark:bg-slate-950"/></label>
+        <p className="text-xs">Start and closing dates use YYYY-MM-DD. Half-term dates use YYYY-MM-DD to YYYY-MM-DD. Teaching stops on break dates and the closing date. Longer schemes cycle the generated sequence for practice and consolidation.</p>
+        {generationError && <p role="alert" className="text-sm text-rose-700 dark:text-rose-300">{generationError}</p>}
+        <button onClick={()=>{if(rows.length){storageService.saveScheme(getDocumentObject());setGenerationError('Draft saved to your workspace.')}else setGenerationError('Generate a draft first.')}} className="rounded-lg bg-emerald-900 text-white px-4 py-2 text-xs">Save draft without downloading</button>
+      </section>
+
       
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
@@ -251,7 +207,7 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
             <span>KICD Schemes & Lesson Plan Generator</span>
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Updated for Kenyan CBC, CBE and KCSE Syllabuses · Official KICD Matrix · Export to Word (.docx) or PDF
+            Kenyan CBC, CBE and KCSE planning drafts · Export to Word (.docx) or PDF
           </p>
         </div>
 
@@ -262,14 +218,14 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
             className="flex items-center gap-2 h-10 px-3.5 rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-semibold text-xs hover:bg-slate-800 dark:hover:bg-white shadow-sm active:scale-95 transition-all"
           >
             <Download className="h-4 w-4" />
-            <span>MS Word (.docx) · Ksh. 20</span>
+            <span>MS Word (.docx) · Ksh. 15</span>
           </button>
           <button
             onClick={() => handleDownloadClick('pdf')}
             className="flex items-center gap-2 h-10 px-3.5 rounded-xl bg-[#008751] text-white font-semibold text-xs hover:bg-[#007043] shadow-sm shadow-emerald-900/20 active:scale-95 transition-all"
           >
             <Download className="h-4 w-4" />
-            <span>PDF (.pdf) · Ksh. 20</span>
+            <span>PDF (.pdf) · Ksh. 15</span>
           </button>
         </div>
       </div>
@@ -319,7 +275,7 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                 2. Institution & Teacher Credentials
               </label>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Auto-saves to Profile</span>
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Document cover details</span>
             </div>
 
             <div className="space-y-2">
@@ -360,7 +316,7 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
                       type="text"
                       value={tscNumber}
                       onChange={(e) => setTscNumber(e.target.value)}
-                      placeholder="e.g. TSC-784291"
+                      placeholder="e.g. "
                       className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-medium font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
                     />
                   </div>
@@ -703,7 +659,7 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 pb-2 border-b border-slate-200 dark:border-slate-800">
                   <span className="font-bold">{schoolName} — {selectedSubject} ({selectedGrade})</span>
-                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">13 Weeks Term Structure</span>
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">{rows.length ? `${Math.max(...rows.map(row=>row.week))} weeks in draft` : 'Generate to preview'}</span>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -732,7 +688,7 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
                             {row.week}
                           </td>
                           <td className="p-2 border border-slate-200 dark:border-slate-800 text-center text-slate-600 dark:text-slate-400">
-                            {row.lesson}
+                            {row.lesson || ''}
                           </td>
                           <td className="p-2 border border-slate-200 dark:border-slate-800 font-bold text-slate-900 dark:text-white">
                             {row.strand}
@@ -774,7 +730,7 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
                 Ready to Export this Document?
               </p>
               <p className="text-[11px] text-emerald-800 dark:text-emerald-400">
-                M-Pesa Ksh. 20 Send Money to <strong>0707423879</strong>. Once unlocked, download unlimited times.
+                M-Pesa Ksh. 15 Send Money to <strong>0707423879</strong>. Each download costs Ksh. 15.
               </p>
             </div>
             <div className="flex items-center gap-2">
