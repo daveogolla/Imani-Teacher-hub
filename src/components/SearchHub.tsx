@@ -328,7 +328,7 @@ export const SearchHub: React.FC<SearchHubProps> = ({
         </div>
 
         <span className="text-xs text-slate-500">
-          Downloads: Ksh. 20 M-Pesa to 0707423879
+          Downloads: Ksh. 15 M-Pesa to 0707423879
         </span>
       </div>
 
@@ -382,7 +382,7 @@ export const SearchHub: React.FC<SearchHubProps> = ({
                         )}
                         {isTemplate && (
                           <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
-                            KICD Template
+                            Planning template
                           </span>
                         )}
                         {isIdea && (
@@ -464,7 +464,7 @@ export const SearchHub: React.FC<SearchHubProps> = ({
                     )}
                   </div>
 
-                  {/* Right: Quick Download with M-Pesa Ksh. 20 */}
+                  {/* Right: Quick Download with M-Pesa Ksh. 15 */}
                   <div className="flex items-center gap-1.5">
                     {isSaved && res.savedDoc ? (
                       <>
@@ -488,14 +488,14 @@ export const SearchHub: React.FC<SearchHubProps> = ({
                         <button
                           onClick={() => onInitiateDownload(`${res.grade} ${res.subject} (${res.strand})`, 'docx', 'scheme')}
                           className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-[11px] transition-colors"
-                          title="Download Word Document (Ksh. 20 M-Pesa)"
+                          title="Download Word Document (Ksh. 15 M-Pesa)"
                         >
                           Word · Ksh 20
                         </button>
                         <button
                           onClick={() => onInitiateDownload(`${res.grade} ${res.subject} (${res.strand})`, 'pdf', 'scheme')}
                           className="px-2.5 py-1.5 rounded-lg bg-[#008751] hover:bg-[#007043] text-white font-semibold text-[11px] shadow-sm transition-colors"
-                          title="Download PDF Document (Ksh. 20 M-Pesa)"
+                          title="Download PDF Document (Ksh. 15 M-Pesa)"
                         >
                           PDF · Ksh 20
                         </button>

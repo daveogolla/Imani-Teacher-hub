@@ -63,6 +63,8 @@ export interface SchemeDocument {
   rows: SchemeRow[];
   createdAt: string;
   isPaid?: boolean;
+  bookReference?: string;
+  additionalBreaks?: string;
 }
 
 export interface ContentIdea {

@@ -1,50 +1,54 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  FileSpreadsheet, 
-  Sparkles, 
-  Download, 
-  ChevronLeft, 
-  ChevronRight, 
-  Building2, 
-  User, 
-  Calendar, 
-  Clock, 
-  FileText, 
-  CheckSquare, 
-  Eye, 
-  ShieldCheck, 
-  Layers, 
-  BookOpen, 
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import {
+  FileSpreadsheet,
+  Sparkles,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  Building2,
+  User,
+  Calendar,
+  Clock,
+  FileText,
+  CheckSquare,
+  Eye,
+  ShieldCheck,
+  Layers,
+  BookOpen,
   HelpCircle,
   PlusCircle,
-  Trash2
-} from 'lucide-react';
-import { GradeLevel, SchemeDocument, SchemeRow, UserProfile } from '../types';
-import { GRADES_LIST, CURRICULUM_DATABASE } from '../data/kenyanCurriculum';
-import { storageService } from '../services/storageService';
+  Trash2,
+} from "lucide-react";
+import { GradeLevel, SchemeDocument, SchemeRow, UserProfile } from "../types";
+import { GRADES_LIST, CURRICULUM_DATABASE } from "../data/kenyanCurriculum";
+import { SubjectPicker, BookPicker, BreakEditor } from "./PlanningControls";
+import { buildSchedule, type BreakPeriod } from "../services/schedule";
+import { storageService } from "../services/storageService";
 
 interface SchemeGeneratorProps {
   userProfile: UserProfile;
   initialGrade?: GradeLevel;
   initialSubject?: string;
   initialStrand?: string;
-  initialDocumentType?: 'scheme' | 'lesson_plan';
-  onInitiateDownload: (scheme: SchemeDocument, format: 'docx' | 'pdf') => void;
+  initialDocumentType?: "scheme" | "lesson_plan" | "revision";
+  onInitiateDownload: (scheme: SchemeDocument, format: "docx" | "pdf") => void;
 }
 
 export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
   userProfile,
-  initialGrade = 'Grade 8',
+  initialGrade = "Grade 8",
   initialSubject,
   initialStrand,
-  initialDocumentType = 'scheme',
+  initialDocumentType = "scheme",
   onInitiateDownload,
 }) => {
   // Form State
-  const [documentType, setDocumentType] = useState<'scheme' | 'lesson_plan'>(initialDocumentType);
-  const [schoolName, setSchoolName] = useState(userProfile.schoolName || 'MOI FORCES ACADEMY');
-  const [teacherName, setTeacherName] = useState(userProfile.teacherName || 'Mwalimu Otieno');
-  const [tscNumber, setTscNumber] = useState(userProfile.tscNumber || 'TSC-784291');
+  const [documentType, setDocumentType] = useState<
+    "scheme" | "lesson_plan" | "revision"
+  >(initialDocumentType);
+  const [schoolName, setSchoolName] = useState(userProfile.schoolName || "");
+  const [teacherName, setTeacherName] = useState(userProfile.teacherName || "");
+  const [tscNumber, setTscNumber] = useState(userProfile.tscNumber || "");
 
   // Grade Selection & Previous/Next Grade feature
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel>(initialGrade);
@@ -53,13 +57,15 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
   // Available subjects for current grade
   const availableSubjects = CURRICULUM_DATABASE[selectedGrade] || [];
   const [selectedSubject, setSelectedSubject] = useState(
-    initialSubject || (availableSubjects[0]?.name || 'Mathematics')
+    initialSubject || availableSubjects[0]?.name || "Mathematics",
   );
 
   // Selected Topic / Strand
-  const currentSubjectCurriculum = availableSubjects.find(s => s.name === selectedSubject);
-  const [selectedStrand, setSelectedStrand] = useState(initialStrand || '');
-  const [customTopic, setCustomTopic] = useState(initialStrand || '');
+  const currentSubjectCurriculum = availableSubjects.find(
+    (s) => s.name === selectedSubject,
+  );
+  const [selectedStrand, setSelectedStrand] = useState(initialStrand || "");
+  const [customTopic, setCustomTopic] = useState(initialStrand || "");
 
   // Synchronize when initial props change (e.g. from Search Hub or Syllabus click)
   useEffect(() => {
@@ -85,7 +91,7 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
   useEffect(() => {
     const subjects = CURRICULUM_DATABASE[selectedGrade] || [];
     if (subjects.length > 0) {
-      const match = subjects.find(s => s.name === selectedSubject);
+      const match = subjects.find((s) => s.name === selectedSubject);
       if (!match) {
         setSelectedSubject(subjects[0].name);
       }
@@ -96,9 +102,15 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
   const [term, setTerm] = useState(1);
   const [year, setYear] = useState(2026);
   const [lessonsPerWeek, setLessonsPerWeek] = useState(5);
-  const [termStartDate, setTermStartDate] = useState('2026-01-05');
-  const [halfTermDate, setHalfTermDate] = useState('2026-02-18 to 2026-02-22');
-  const [closingDate, setClosingDate] = useState('2026-04-03');
+  const [termStartDate, setTermStartDate] = useState("2026-01-05");
+  const [breakPeriods, setBreakPeriods] = useState<BreakPeriod[]>([
+    { start: "2026-02-18", end: "2026-02-22", label: "Half-term break" },
+  ]);
+  const halfTermDate = breakPeriods
+    .filter((b) => b.label === "Half-term break")
+    .map((b) => `${b.start} to ${b.end}`)
+    .join("; ");
+  const [closingDate, setClosingDate] = useState("2026-04-03");
 
   // Cover Page Sign-off options
   const [includeHodSign, setIncludeHodSign] = useState(true);
@@ -108,98 +120,141 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
   // Generated Rows
   const [rows, setRows] = useState<SchemeRow[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [previewTab, setPreviewTab] = useState<'table' | 'cover'>('table');
+  const [previewTab, setPreviewTab] = useState<"table" | "cover">("table");
 
-  // Build default rows based on current curriculum strand
-  const generateCurriculumRows = () => {
-    setIsGenerating(true);
-
-    setTimeout(() => {
-      const topics = currentSubjectCurriculum?.topics || [];
-      const primaryTopic = topics[0] || {
-        strand: customTopic || 'General Concepts',
-        subStrands: ['Fundamentals', 'Applications', 'Practical Inquiry', 'Assessment Evaluation'],
-        sampleOutcomes: `By the end of the lesson, the learner should be able to explain core concepts in ${selectedSubject}.`,
-        sampleQuestions: `How does ${selectedSubject} apply to everyday life in Kenya?`
+  const [generationError, setGenerationError] = useState("");
+  const [bookReference, setBookReference] = useState("");
+  const extraBreaks = breakPeriods
+    .map(
+      (b) =>
+        `${b.start} to ${b.end}: ${b.label}${b.lessonFrom === undefined ? " (all lessons)" : ` (weekly lessons ${b.lessonFrom}–${b.lessonTo})`}`,
+    )
+    .join("; ");
+  const savedBooks = [
+    ...new Set(
+      storageService
+        .getSavedSchemes()
+        .filter(
+          (doc) =>
+            doc.grade === selectedGrade && doc.subject === selectedSubject,
+        )
+        .map((doc) => doc.bookReference)
+        .filter((ref): ref is string => Boolean(ref)),
+    ),
+  ];
+  const planSummary = useMemo(() => {
+    try {
+      const plan = buildSchedule(
+        [{} as SchemeRow],
+        termStartDate,
+        closingDate,
+        lessonsPerWeek,
+        breakPeriods,
+      );
+      return {
+        lessons: plan.filter((row) => row.lesson > 0).length,
+        breakRows: plan.filter((row) => row.lesson === 0).length,
+        error: "",
       };
-
-      const generated: SchemeRow[] = [];
-      const totalWeeks = 13;
-      let lessonCounter = 1;
-
-      for (let wk = 1; wk <= totalWeeks; wk++) {
-        // Special handle for week 7 (Half-term) and week 13 (End Term Exams)
-        if (wk === 7) {
-          generated.push({
-            id: `row-wk${wk}-1`,
-            week: wk,
-            lesson: 1,
-            strand: 'MID-TERM ASSESSMENT & BREAK',
-            subStrand: 'Continuous Assessment Test (CAT 1)',
-            specificOutcomes: 'Assess learner competency mastery of strands covered in weeks 1 through 6.',
-            inquiryQuestions: 'Which concepts require consolidation?',
-            learningExperiences: 'Administering standardized CAT assessment paper; revision of test items.',
-            coreCompetencies: 'Critical thinking, Self-efficacy',
-            resources: 'Assessment papers, Answer booklets, Scoring rubric',
-            assessment: 'Written Test, Rubric Evaluation',
-            reflection: 'Identify learners requiring remedial support.'
-          });
-          continue;
-        }
-
-        if (wk === 13) {
-          generated.push({
-            id: `row-wk${wk}-1`,
-            week: wk,
-            lesson: 1,
-            strand: 'END TERM EVALUATION & CLOSING',
-            subStrand: 'End of Term Summative Examination',
-            specificOutcomes: 'Evaluate cumulative learning outcomes for Term ' + term + '.',
-            inquiryQuestions: 'How has the learner progressed toward competency benchmarks?',
-            learningExperiences: 'Summative examination, report card generation, academic feedback clinics.',
-            coreCompetencies: 'Problem solving, Reflection',
-            resources: 'KNEC syllabus guidelines, Standardized term test',
-            assessment: 'Summative Assessment, Report Cards',
-            reflection: 'Term syllabus coverage achieved.'
-          });
-          continue;
-        }
-
-        for (let lsn = 1; lsn <= lessonsPerWeek; lsn++) {
-          const subStrandIdx = (wk + lsn) % (primaryTopic.subStrands.length || 1);
-          const subStrandName = primaryTopic.subStrands[subStrandIdx] || 'Practical Inquiry';
-
-          generated.push({
-            id: `row-wk${wk}-lsn${lsn}`,
-            week: wk,
-            lesson: lsn,
-            strand: primaryTopic.strand,
-            subStrand: subStrandName,
-            specificOutcomes: primaryTopic.sampleOutcomes || `By the end of the lesson, the learner should be able to demonstrate mastery of ${subStrandName}.`,
-            inquiryQuestions: primaryTopic.sampleQuestions || `Why is ${subStrandName} important?`,
-            learningExperiences: `Learners in small groups examine realia/digital charts, discuss ${subStrandName}, and present findings to the whole class.`,
-            coreCompetencies: 'Communication and collaboration, Critical thinking, Digital literacy',
-            resources: `KICD Approved Curriculum Design, KLB Top Mark ${selectedSubject}, Local realia, Digital devices`,
-            assessment: 'Oral questioning, Observation checklist, Written exercise',
-            reflection: 'Lesson paced according to competency development.'
-          });
-        }
-      }
-
-      setRows(generated);
-      setIsGenerating(false);
-    }, 400);
-  };
-
-  // Generate on initial load
+    } catch (error) {
+      return {
+        lessons: 0,
+        breakRows: 0,
+        error:
+          error instanceof Error ? error.message : "Check your term settings.",
+      };
+    }
+  }, [termStartDate, closingDate, lessonsPerWeek, extraBreaks]);
+  const requestVersion = useRef(0);
   useEffect(() => {
-    generateCurriculumRows();
-  }, [selectedGrade, selectedSubject]);
+    requestVersion.current++;
+    setRows([]);
+  }, [
+    selectedGrade,
+    selectedSubject,
+    customTopic,
+    selectedStrand,
+    documentType,
+    term,
+    year,
+    lessonsPerWeek,
+    termStartDate,
+    halfTermDate,
+    closingDate,
+    extraBreaks,
+    bookReference,
+  ]);
+  const generateCurriculumRows = async () => {
+    const version = ++requestVersion.current;
+    setIsGenerating(true);
+    setGenerationError("");
+    try {
+      if (!selectedSubject.trim())
+        throw new Error("Choose or enter a learning area first.");
+      const breaks = breakPeriods;
+      // Validate schedule before starting a paid AI request.
+      buildSchedule(
+        [{} as SchemeRow],
+        termStartDate,
+        closingDate,
+        lessonsPerWeek,
+        breaks,
+      );
+      const response = await fetch("/.netlify/functions/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          grade: selectedGrade,
+          subject: selectedSubject,
+          topic: customTopic || selectedStrand,
+          documentType,
+          term,
+          year,
+          bookReference,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Unable to generate a draft.");
+      if (version !== requestVersion.current)
+        throw new Error(
+          "Settings changed during generation. Generate again using the current settings.",
+        );
+      setRows(
+        documentType === "revision"
+          ? data.rows.map((row: SchemeRow, index: number) => ({
+              ...row,
+              id: `revision-${index}`,
+              week: 1,
+              lesson: index + 1,
+            }))
+          : buildSchedule(
+              data.rows,
+              termStartDate,
+              closingDate,
+              lessonsPerWeek,
+              breaks,
+              documentType === "lesson_plan",
+            ),
+      );
+    } catch (error) {
+      setGenerationError(
+        error instanceof Error
+          ? error.message
+          : "Generation failed. Please try again.",
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   // Navigate to previous grade
   const handlePreviousGrade = () => {
     if (gradeIndex > 0) {
       setSelectedGrade(GRADES_LIST[gradeIndex - 1]);
+      setBookReference("");
+      setCustomTopic("");
+      setSelectedStrand("");
     }
   };
 
@@ -207,17 +262,20 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
   const handleNextGrade = () => {
     if (gradeIndex < GRADES_LIST.length - 1) {
       setSelectedGrade(GRADES_LIST[gradeIndex + 1]);
+      setBookReference("");
+      setCustomTopic("");
+      setSelectedStrand("");
     }
   };
 
   // Prepare full document object
   const getDocumentObject = (): SchemeDocument => ({
     id: `scheme-${Date.now()}`,
-    title: `${selectedGrade} ${selectedSubject} Schemes of Work - Term ${term}`,
+    title: `${selectedGrade} ${selectedSubject} ${documentType === "scheme" ? "Schemes of Work" : documentType === "lesson_plan" ? "Lesson Plan" : "Revision Material"} - Term ${term}`,
     documentType,
-    schoolName: schoolName.trim() || 'MOI FORCES ACADEMY',
-    teacherName: teacherName.trim() || 'Mwalimu Otieno',
-    tscNumber: tscNumber.trim() || 'TSC-784291',
+    schoolName: schoolName.trim() || "",
+    teacherName: teacherName.trim() || "",
+    tscNumber: tscNumber.trim() || "",
     grade: selectedGrade,
     subject: selectedSubject,
     term,
@@ -230,10 +288,16 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
     includeDeputySign,
     includePrincipalSign,
     rows,
-    createdAt: new Date().toISOString()
+    bookReference,
+    additionalBreaks: extraBreaks,
+    createdAt: new Date().toISOString(),
   });
 
-  const handleDownloadClick = (format: 'docx' | 'pdf') => {
+  const handleDownloadClick = (format: "docx" | "pdf") => {
+    if (!rows.length || isGenerating) {
+      setGenerationError("Generate a draft before requesting a download.");
+      return;
+    }
     const doc = getDocumentObject();
     // Save to local storage for persistence
     storageService.saveScheme(doc);
@@ -241,58 +305,90 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-24">
-      
+    <div className="planner-page space-y-6 pb-24">
+      <div className="planner-welcome">
+        <div>
+          <p className="text-xs uppercase tracking-[.2em] text-emerald-200">
+            Your lesson planning studio
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold mt-3">
+            A little planning.
+            <br />A better school day.
+          </h1>
+          <p className="text-sm text-emerald-100 mt-3 max-w-lg">
+            Choose a learning area, add your classroom book and mark the days
+            you take a break. Your teaching draft takes shape here.
+          </p>
+        </div>
+        <BookOpen
+          size={72}
+          strokeWidth={1}
+          className="hidden sm:block text-emerald-200/60 shrink-0"
+        />
+      </div>
+      <div className="flex flex-wrap gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-200">
+        <span className="planner-step">01 · Choose your content</span>
+        <span className="planner-step">02 · Set dates & breaks</span>
+        <span className="planner-step">03 · Review your draft</span>
+      </div>
+      {generationError && (
+        <p
+          role="status"
+          className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/40 p-4 text-sm"
+        >
+          {generationError}
+        </p>
+      )}
+
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
             <FileSpreadsheet className="h-6 w-6 text-[#008751]" />
-            <span>KICD Schemes & Lesson Plan Generator</span>
+            <span>Build your teaching document</span>
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Updated for Kenyan CBC, CBE and KCSE Syllabuses · Official KICD Matrix · Export to Word (.docx) or PDF
+            Kenyan CBC, CBE and KCSE planning drafts · Export to Word (.docx) or
+            PDF
           </p>
         </div>
 
         {/* Quick Format & Generate */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => handleDownloadClick('docx')}
+            onClick={() => handleDownloadClick("docx")}
             className="flex items-center gap-2 h-10 px-3.5 rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-semibold text-xs hover:bg-slate-800 dark:hover:bg-white shadow-sm active:scale-95 transition-all"
           >
             <Download className="h-4 w-4" />
-            <span>MS Word (.docx) · Ksh. 20</span>
+            <span>MS Word (.docx) · Ksh. 15</span>
           </button>
           <button
-            onClick={() => handleDownloadClick('pdf')}
+            onClick={() => handleDownloadClick("pdf")}
             className="flex items-center gap-2 h-10 px-3.5 rounded-xl bg-[#008751] text-white font-semibold text-xs hover:bg-[#007043] shadow-sm shadow-emerald-900/20 active:scale-95 transition-all"
           >
             <Download className="h-4 w-4" />
-            <span>PDF (.pdf) · Ksh. 20</span>
+            <span>PDF (.pdf) · Ksh. 15</span>
           </button>
         </div>
       </div>
 
       {/* Main Grid: Form Left, Preview Right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
         {/* Left Column: Generator Form (5 Cols) */}
         <div className="lg:col-span-5 space-y-4">
-          
           {/* Document Type Selector */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
             <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
               1. Document Type
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => setDocumentType('scheme')}
+                onClick={() => setDocumentType("scheme")}
                 className={`flex items-center justify-center gap-2 h-10 rounded-xl text-xs font-semibold transition-all ${
-                  documentType === 'scheme'
-                    ? 'bg-[#008751] text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  documentType === "scheme"
+                    ? "bg-[#008751] text-white shadow-sm"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
                 }`}
               >
                 <FileSpreadsheet className="h-4 w-4" />
@@ -300,72 +396,24 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setDocumentType('lesson_plan')}
+                onClick={() => setDocumentType("lesson_plan")}
                 className={`flex items-center justify-center gap-2 h-10 rounded-xl text-xs font-semibold transition-all ${
-                  documentType === 'lesson_plan'
-                    ? 'bg-[#008751] text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  documentType === "lesson_plan"
+                    ? "bg-[#008751] text-white shadow-sm"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
                 }`}
               >
                 <BookOpen className="h-4 w-4" />
                 <span>CBC Lesson Plan</span>
               </button>
-            </div>
-          </div>
-
-          {/* School & Teacher Information Box */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                2. Institution & Teacher Credentials
-              </label>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Auto-saves to Profile</span>
-            </div>
-
-            <div className="space-y-2">
-              <div>
-                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">School Name (For Cover Page)</label>
-                <div className="relative mt-1">
-                  <Building2 className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={schoolName}
-                    onChange={(e) => setSchoolName(e.target.value)}
-                    placeholder="e.g. Alliance High School or Lenana School"
-                    className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Teacher's Name</label>
-                  <div className="relative mt-1">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                    <input
-                      type="text"
-                      value={teacherName}
-                      onChange={(e) => setTeacherName(e.target.value)}
-                      placeholder="e.g. Mwalimu Kamau"
-                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">TSC Number</label>
-                  <div className="relative mt-1">
-                    <ShieldCheck className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                    <input
-                      type="text"
-                      value={tscNumber}
-                      onChange={(e) => setTscNumber(e.target.value)}
-                      placeholder="e.g. TSC-784291"
-                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-medium font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
+              <button
+                type="button"
+                aria-pressed={documentType === "revision"}
+                onClick={() => setDocumentType("revision")}
+                className={`rounded-xl p-3 text-xs font-semibold ${documentType === "revision" ? "bg-emerald-900 text-white" : "bg-slate-100 dark:bg-slate-800"}`}
+              >
+                Revision material
+              </button>
             </div>
           </div>
 
@@ -373,7 +421,7 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
           <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                3. Grade / Class Navigation
+                2. Choose grade & learning area
               </label>
               <div className="flex items-center gap-1">
                 <button
@@ -402,43 +450,92 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
             <div className="space-y-2">
               <select
                 value={selectedGrade}
-                onChange={(e) => setSelectedGrade(e.target.value as GradeLevel)}
+                onChange={(e) => {
+                  setSelectedGrade(e.target.value as GradeLevel);
+                  setBookReference("");
+                  setCustomTopic("");
+                  setSelectedStrand("");
+                }}
                 className="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
               >
                 {GRADES_LIST.map((g) => (
                   <option key={g} value={g}>
-                    {g} ({g.startsWith('PP') ? 'Early Years' : g.includes('KCSE') ? 'National Examination' : g.includes('7') || g.includes('8') || g.includes('9') ? 'Junior Secondary' : 'Kenyan Curriculum'})
+                    {g} (
+                    {g.startsWith("PP")
+                      ? "Early Years"
+                      : g.includes("KCSE")
+                        ? "National Examination"
+                        : g.includes("7") || g.includes("8") || g.includes("9")
+                          ? "Junior Secondary"
+                          : "Kenyan Curriculum"}
+                    )
                   </option>
                 ))}
               </select>
 
-              {/* Subject Dropdown */}
-              <div>
-                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Learning Area / Subject</label>
+              <SubjectPicker
+                key={selectedGrade}
+                subjects={availableSubjects}
+                value={selectedSubject}
+                onChange={(value) => {
+                  setSelectedSubject(value);
+                  setCustomTopic("");
+                  setSelectedStrand("");
+                  setBookReference("");
+                }}
+              />
+              <label className="planner-field">
+                <span>Topic or strand</span>
                 <select
-                  value={selectedSubject}
-                  onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="mt-1 w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                  value={selectedStrand}
+                  onChange={(e) => {
+                    setSelectedStrand(e.target.value);
+                    setCustomTopic("");
+                  }}
                 >
-                  {availableSubjects.map((s) => (
-                    <option key={s.name} value={s.name}>
-                      {s.name} ({s.category})
-                    </option>
+                  <option value="">Whole learning area</option>
+                  {currentSubjectCurriculum?.topics.map((topic) => (
+                    <optgroup key={topic.strand} label={topic.strand}>
+                      <option value={topic.strand}>
+                        {topic.strand} (whole strand)
+                      </option>
+                      {topic.subStrands.map((sub) => (
+                        <option key={sub} value={sub}>
+                          {sub}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
-              </div>
+              </label>
+              <label className="planner-field">
+                <span>Specific topic (optional)</span>
+                <input
+                  value={customTopic}
+                  onChange={(e) => setCustomTopic(e.target.value)}
+                  placeholder="Or type the topic you want to teach"
+                />
+              </label>
             </div>
           </div>
+          <BookPicker
+            key={`${selectedGrade}-${selectedSubject}`}
+            value={bookReference}
+            onChange={setBookReference}
+            saved={savedBooks}
+          />
 
           {/* Term, Breaks & Lessons Timing Options */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
             <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-              4. Term Dates, Lessons per Week & Breaks
+              3. Plan your term & breaks
             </label>
 
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Term</label>
+                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  Term
+                </label>
                 <select
                   value={term}
                   onChange={(e) => setTerm(Number(e.target.value))}
@@ -451,7 +548,9 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
               </div>
 
               <div>
-                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Year</label>
+                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  Year
+                </label>
                 <input
                   type="number"
                   value={year}
@@ -461,7 +560,9 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
               </div>
 
               <div>
-                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Lessons / Wk</label>
+                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  Lessons / Wk
+                </label>
                 <input
                   type="number"
                   min={1}
@@ -473,41 +574,114 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
               </div>
             </div>
 
-            <div className="space-y-2 pt-1">
-              <div>
-                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Term Started Date</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="planner-field">
+                <span>Term starts</span>
                 <input
-                  type="text"
+                  type="date"
                   value={termStartDate}
+                  max={closingDate}
                   onChange={(e) => setTermStartDate(e.target.value)}
-                  placeholder="e.g. 05/01/2026 or 5th Jan 2026"
-                  className="mt-0.5 w-full h-9 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Half Term Break Dates</label>
+              </label>
+              <label className="planner-field">
+                <span>School closes</span>
                 <input
-                  type="text"
-                  value={halfTermDate}
-                  onChange={(e) => setHalfTermDate(e.target.value)}
-                  placeholder="e.g. 18th Feb - 22nd Feb 2026"
-                  className="mt-0.5 w-full h-9 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">End Term Closing Date</label>
-                <input
-                  type="text"
+                  type="date"
                   value={closingDate}
+                  min={termStartDate}
                   onChange={(e) => setClosingDate(e.target.value)}
-                  placeholder="e.g. 03/04/2026 or 3rd April 2026"
-                  className="mt-0.5 w-full h-9 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
-              </div>
+              </label>
+            </div>
+            <BreakEditor
+              value={breakPeriods}
+              onChange={setBreakPeriods}
+              lessons={
+                Number.isInteger(lessonsPerWeek) &&
+                lessonsPerWeek >= 1 &&
+                lessonsPerWeek <= 10
+                  ? lessonsPerWeek
+                  : 5
+              }
+              start={termStartDate}
+              end={closingDate}
+            />
+            <div
+              role="status"
+              className={`rounded-xl p-3 text-xs ${planSummary.error ? "bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200" : "bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"}`}
+            >
+              {planSummary.error ||
+                `${planSummary.lessons} teaching slots · ${planSummary.breakRows} blank break / closing entries. Lessons are spread across Monday–Friday; review the draft against your timetable.`}
             </div>
           </div>
+
+          {/* School & Teacher Information Box */}
+          <details className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
+            <summary className="cursor-pointer text-sm font-semibold">
+              Cover page · {schoolName || "Add school & teacher details"}
+            </summary>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                4. Personalise your cover page
+              </label>
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                Document cover details
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <div>
+                <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  School Name (For Cover Page)
+                </label>
+                <div className="relative mt-1">
+                  <Building2 className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={schoolName}
+                    onChange={(e) => setSchoolName(e.target.value)}
+                    placeholder="e.g. Alliance High School or Lenana School"
+                    className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    Teacher's Name
+                  </label>
+                  <div className="relative mt-1">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={teacherName}
+                      onChange={(e) => setTeacherName(e.target.value)}
+                      placeholder="e.g. Mwalimu Kamau"
+                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    TSC Number
+                  </label>
+                  <div className="relative mt-1">
+                    <ShieldCheck className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={tscNumber}
+                      onChange={(e) => setTscNumber(e.target.value)}
+                      placeholder="e.g. "
+                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-medium font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
 
           {/* Cover Page Administrative Sign-off Options */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-3">
@@ -523,7 +697,9 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
                   onChange={(e) => setIncludeHodSign(e.target.checked)}
                   className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500"
                 />
-                <span className="text-slate-700 dark:text-slate-300 font-medium">Head of Department (HoD) Sign & Date Line</span>
+                <span className="text-slate-700 dark:text-slate-300 font-medium">
+                  Head of Department (HoD) Sign & Date Line
+                </span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">
@@ -533,7 +709,9 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
                   onChange={(e) => setIncludeDeputySign(e.target.checked)}
                   className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500"
                 />
-                <span className="text-slate-700 dark:text-slate-300 font-medium">Deputy Principal (Academics) Sign & Date Line</span>
+                <span className="text-slate-700 dark:text-slate-300 font-medium">
+                  Deputy Principal (Academics) Sign & Date Line
+                </span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">
@@ -543,68 +721,127 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
                   onChange={(e) => setIncludePrincipalSign(e.target.checked)}
                   className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500"
                 />
-                <span className="text-slate-700 dark:text-slate-300 font-medium">Principal / Head Teacher Signature & Rubber Stamp Box</span>
+                <span className="text-slate-700 dark:text-slate-300 font-medium">
+                  Principal / Head Teacher Signature & Rubber Stamp Box
+                </span>
               </label>
             </div>
           </div>
 
+          <p className="text-xs text-slate-500 leading-relaxed">
+            AI creates original drafts for teacher review. Check the current
+            curriculum and book approval before classroom use.
+          </p>
+          <button
+            onClick={() => {
+              if (rows.length) {
+                storageService.saveScheme(getDocumentObject());
+                setGenerationError("Draft saved to your workspace.");
+              } else setGenerationError("Generate a draft first.");
+            }}
+            className="w-full rounded-xl border border-emerald-700 text-emerald-800 dark:text-emerald-200 p-3 text-xs font-semibold"
+          >
+            Save draft to my workspace
+          </button>
           {/* Regenerate Button */}
           <button
             type="button"
             onClick={generateCurriculumRows}
-            disabled={isGenerating}
+            disabled={
+              isGenerating ||
+              Boolean(planSummary.error) ||
+              !selectedSubject.trim()
+            }
             className="w-full h-11 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
           >
             <Sparkles className="h-4 w-4 text-emerald-600" />
-            <span>{isGenerating ? 'Updating Scheme Matrix...' : 'Regenerate Scheme Matrix'}</span>
+            <span>
+              {isGenerating
+                ? "Updating Scheme Matrix..."
+                : rows.length
+                  ? "Generate a fresh draft"
+                  : "Generate my teaching draft"}
+            </span>
           </button>
-
         </div>
 
         {/* Right Column: Live Interactive Document Preview (7 Cols) */}
         <div className="lg:col-span-7 space-y-4">
-          
           {/* Preview Navigation Bar */}
-          <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
+          <div className="flex flex-wrap gap-3 items-center justify-between rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
             <div className="flex items-center gap-2">
               <Eye className="h-4 w-4 text-emerald-600" />
               <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                 Document Preview
               </span>
-              <span className="text-[11px] text-slate-400">· Continuous Paging Enabled</span>
+              <span className="text-[11px] text-slate-400">
+                · Continuous Paging Enabled
+              </span>
             </div>
 
             <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
               <button
                 type="button"
-                onClick={() => setPreviewTab('cover')}
+                onClick={() => setPreviewTab("cover")}
                 className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-                  previewTab === 'cover'
-                    ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  previewTab === "cover"
+                    ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
               >
                 Cover Page
               </button>
               <button
                 type="button"
-                onClick={() => setPreviewTab('table')}
+                onClick={() => setPreviewTab("table")}
                 className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-                  previewTab === 'table'
-                    ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  previewTab === "table"
+                    ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
               >
-                Content Matrix ({rows.length} Lessons)
+                Content ({rows.filter((row) => row.lesson > 0).length} lessons)
               </button>
             </div>
           </div>
 
           {/* Document Paper Container */}
           <div className="rounded-2xl border border-slate-300/80 bg-white dark:bg-slate-900 dark:border-slate-800 shadow-lg p-6 min-h-[580px] overflow-hidden">
-            
             {/* VIEW A: COVER PAGE PREVIEW */}
-            {previewTab === 'cover' ? (
+            {isGenerating ? (
+              <div role="status" aria-live="polite" className="space-y-5 py-8">
+                <Sparkles className="text-emerald-700" />
+                <h2 className="font-semibold">
+                  Preparing your teaching draft…
+                </h2>
+                <p className="text-sm text-slate-500">
+                  Adding learning experiences and keeping your selected breaks
+                  clear.
+                </p>
+                {[1, 2, 3, 4].map((line) => (
+                  <div
+                    key={line}
+                    className="h-12 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : !rows.length && previewTab === "table" ? (
+              <div className="flex min-h-96 flex-col justify-center items-center text-center gap-4 p-4">
+                <div className="planner-icon">
+                  <BookOpen size={32} />
+                </div>
+                <h2 className="text-xl font-bold">
+                  Your next lesson starts here
+                </h2>
+                <p className="text-sm text-slate-500 max-w-sm">
+                  Select your learning area, choose a reference and check the
+                  term dates. Then tap “Generate my teaching draft”.
+                </p>
+                <span className="planner-step text-xs">
+                  {selectedGrade} · {selectedSubject || "Choose a subject"}
+                </span>
+              </div>
+            ) : previewTab === "cover" ? (
               <div className="border border-emerald-800/40 p-6 rounded-xl space-y-6 text-center bg-emerald-50/20 dark:bg-slate-950/40">
                 <div>
                   <h4 className="text-xs font-extrabold tracking-widest text-slate-600 dark:text-slate-400 uppercase">
@@ -614,7 +851,8 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
                     Ministry of Education · State Department for Basic Education
                   </p>
                   <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold italic mt-0.5">
-                    Kenya Institute of Curriculum Development (KICD) Approved Design
+                    Kenya Institute of Curriculum Development (KICD) Approved
+                    Design
                   </p>
                 </div>
 
@@ -623,45 +861,79 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
                     {schoolName.toUpperCase()}
                   </h2>
                   <div className="mt-2 inline-block rounded-lg bg-emerald-800 px-4 py-1 text-white text-xs font-bold uppercase tracking-wider">
-                    {documentType === 'lesson_plan' ? 'CBC LESSON PLAN' : 'CBC / CBE SCHEMES OF WORK'}
+                    {documentType === "lesson_plan"
+                      ? "CBC LESSON PLAN"
+                      : "CBC / CBE SCHEMES OF WORK"}
                   </div>
                   <p className="mt-2 text-sm font-bold text-slate-800 dark:text-slate-200">
-                    SUBJECT: {selectedSubject.toUpperCase()} | LEVEL: {selectedGrade.toUpperCase()}
+                    SUBJECT: {selectedSubject.toUpperCase()} | LEVEL:{" "}
+                    {selectedGrade.toUpperCase()}
                   </p>
                 </div>
 
                 {/* Cover Details Box */}
                 <div className="max-w-md mx-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-4 text-left text-xs space-y-2">
                   <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                    <span className="font-semibold text-slate-500">Teacher's Name:</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{teacherName}</span>
+                    <span className="font-semibold text-slate-500">
+                      Teacher's Name:
+                    </span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {teacherName}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                    <span className="font-semibold text-slate-500">TSC Number:</span>
-                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{tscNumber}</span>
+                    <span className="font-semibold text-slate-500">
+                      TSC Number:
+                    </span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      {tscNumber}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                    <span className="font-semibold text-slate-500">Academic Term:</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">Term {term}, {year}</span>
+                    <span className="font-semibold text-slate-500">
+                      Academic Term:
+                    </span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      Term {term}, {year}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                    <span className="font-semibold text-slate-500">Lessons / Week:</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{lessonsPerWeek} Lessons</span>
+                    <span className="font-semibold text-slate-500">
+                      Lessons / Week:
+                    </span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {lessonsPerWeek} Lessons
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                    <span className="font-semibold text-slate-500">Term Start Date:</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">{termStartDate}</span>
+                    <span className="font-semibold text-slate-500">
+                      Term Start Date:
+                    </span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {termStartDate}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                    <span className="font-semibold text-slate-500">Half Term Break:</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">{halfTermDate}</span>
+                    <span className="font-semibold text-slate-500">
+                      Half Term Break:
+                    </span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {halfTermDate}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1">
-                    <span className="font-semibold text-slate-500">End Term Closing:</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">{closingDate}</span>
+                    <span className="font-semibold text-slate-500">
+                      End Term Closing:
+                    </span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {closingDate}
+                    </span>
                   </div>
                 </div>
 
+                <p className="text-xs text-left text-slate-500">
+                  Breaks: {extraBreaks || "No breaks selected"}
+                </p>
                 {/* Sign-Off Block */}
                 <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-3 text-left">
                   <h5 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">
@@ -670,22 +942,38 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
                     {includeHodSign && (
                       <div className="p-2.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50">
-                        <p className="font-bold text-slate-800 dark:text-slate-200">HoD Signature</p>
-                        <p className="mt-4 text-slate-400">Sign: ______________</p>
-                        <p className="mt-1 text-slate-400">Date: ______________</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">
+                          HoD Signature
+                        </p>
+                        <p className="mt-4 text-slate-400">
+                          Sign: ______________
+                        </p>
+                        <p className="mt-1 text-slate-400">
+                          Date: ______________
+                        </p>
                       </div>
                     )}
                     {includeDeputySign && (
                       <div className="p-2.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50">
-                        <p className="font-bold text-slate-800 dark:text-slate-200">Deputy Principal</p>
-                        <p className="mt-4 text-slate-400">Sign: ______________</p>
-                        <p className="mt-1 text-slate-400">Date: ______________</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">
+                          Deputy Principal
+                        </p>
+                        <p className="mt-4 text-slate-400">
+                          Sign: ______________
+                        </p>
+                        <p className="mt-1 text-slate-400">
+                          Date: ______________
+                        </p>
                       </div>
                     )}
                     {includePrincipalSign && (
                       <div className="p-2.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50">
-                        <p className="font-bold text-slate-800 dark:text-slate-200">Principal Stamp</p>
-                        <p className="mt-2 text-slate-400">Sign: ______________</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">
+                          Principal Stamp
+                        </p>
+                        <p className="mt-2 text-slate-400">
+                          Sign: ______________
+                        </p>
                         <div className="mt-1.5 h-10 border border-slate-300 dark:border-slate-700 rounded flex items-center justify-center text-[9px] text-slate-400">
                           Rubber Stamp
                         </div>
@@ -702,37 +990,61 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
               /* VIEW B: TABLE CONTENT PREVIEW */
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 pb-2 border-b border-slate-200 dark:border-slate-800">
-                  <span className="font-bold">{schoolName} — {selectedSubject} ({selectedGrade})</span>
-                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">13 Weeks Term Structure</span>
+                  <span className="font-bold">
+                    {schoolName} — {selectedSubject} ({selectedGrade})
+                  </span>
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                    {rows.length
+                      ? `${Math.max(...rows.map((row) => row.week))} weeks in draft`
+                      : "Generate to preview"}
+                  </span>
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-[#008751] text-white text-[11px]">
-                        <th className="p-2 border border-emerald-800 font-bold text-center">Wk</th>
-                        <th className="p-2 border border-emerald-800 font-bold text-center">Lsn</th>
-                        <th className="p-2 border border-emerald-800 font-bold min-w-[120px]">Strand / Theme</th>
-                        <th className="p-2 border border-emerald-800 font-bold min-w-[120px]">Sub-Strand</th>
-                        <th className="p-2 border border-emerald-800 font-bold min-w-[200px]">Specific Outcomes</th>
-                        <th className="p-2 border border-emerald-800 font-bold min-w-[140px]">Inquiry Questions</th>
-                        <th className="p-2 border border-emerald-800 font-bold min-w-[120px]">Resources</th>
-                        <th className="p-2 border border-emerald-800 font-bold min-w-[100px]">Assessment</th>
+                        <th className="p-2 border border-emerald-800 font-bold text-center">
+                          Wk
+                        </th>
+                        <th className="p-2 border border-emerald-800 font-bold text-center">
+                          Lsn
+                        </th>
+                        <th className="p-2 border border-emerald-800 font-bold min-w-[120px]">
+                          Strand / Theme
+                        </th>
+                        <th className="p-2 border border-emerald-800 font-bold min-w-[120px]">
+                          Sub-Strand
+                        </th>
+                        <th className="p-2 border border-emerald-800 font-bold min-w-[200px]">
+                          Specific Outcomes
+                        </th>
+                        <th className="p-2 border border-emerald-800 font-bold min-w-[140px]">
+                          Inquiry Questions
+                        </th>
+                        <th className="p-2 border border-emerald-800 font-bold min-w-[120px]">
+                          Resources
+                        </th>
+                        <th className="p-2 border border-emerald-800 font-bold min-w-[100px]">
+                          Assessment
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-[11px]">
                       {rows.map((row) => (
-                        <tr 
+                        <tr
                           key={row.id}
-                          className={row.strand.includes('BREAK') || row.strand.includes('EVALUATION') 
-                            ? 'bg-amber-50 dark:bg-amber-950/40 font-semibold' 
-                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}
+                          className={
+                            row.lesson === 0
+                              ? "bg-amber-50 dark:bg-amber-950/40 font-semibold"
+                              : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                          }
                         >
                           <td className="p-2 border border-slate-200 dark:border-slate-800 text-center font-bold text-slate-700 dark:text-slate-300">
                             {row.week}
                           </td>
                           <td className="p-2 border border-slate-200 dark:border-slate-800 text-center text-slate-600 dark:text-slate-400">
-                            {row.lesson}
+                            {row.lesson || ""}
                           </td>
                           <td className="p-2 border border-slate-200 dark:border-slate-800 font-bold text-slate-900 dark:text-white">
                             {row.strand}
@@ -764,7 +1076,6 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
                 </div>
               </div>
             )}
-
           </div>
 
           {/* Download Callout Box */}
@@ -774,31 +1085,29 @@ export const SchemeGenerator: React.FC<SchemeGeneratorProps> = ({
                 Ready to Export this Document?
               </p>
               <p className="text-[11px] text-emerald-800 dark:text-emerald-400">
-                M-Pesa Ksh. 20 Send Money to <strong>0707423879</strong>. Once unlocked, download unlimited times.
+                M-Pesa Ksh. 15 Send Money to <strong>0707423879</strong>. Each
+                download costs Ksh. 15.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => handleDownloadClick('docx')}
+                onClick={() => handleDownloadClick("docx")}
                 className="h-10 px-4 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 shadow-md active:scale-95 transition-all"
               >
                 Word (.docx)
               </button>
               <button
                 type="button"
-                onClick={() => handleDownloadClick('pdf')}
+                onClick={() => handleDownloadClick("pdf")}
                 className="h-10 px-4 rounded-xl bg-[#008751] text-white font-bold text-xs hover:bg-[#007043] shadow-md shadow-emerald-900/20 active:scale-95 transition-all"
               >
                 PDF (.pdf)
               </button>
             </div>
           </div>
-
         </div>
-
       </div>
-
     </div>
   );
 };

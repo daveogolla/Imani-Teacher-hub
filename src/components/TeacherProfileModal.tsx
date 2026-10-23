@@ -33,11 +33,10 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
   const [activeTab, setActiveTab] = useState<'profile' | 'receipts'>('profile');
 
   // Form Fields
-  const [email, setEmail] = useState(userProfile.email || 'teacher@education.go.ke');
-  const [password, setPassword] = useState('••••••••••••');
-  const [teacherName, setTeacherName] = useState(userProfile.teacherName || 'Mwalimu Otieno');
-  const [tscNumber, setTscNumber] = useState(userProfile.tscNumber || 'TSC-784291');
-  const [schoolName, setSchoolName] = useState(userProfile.schoolName || 'Moi Forces Academy');
+  const [email, setEmail] = useState(userProfile.email || '');
+  const [teacherName, setTeacherName] = useState(userProfile.teacherName || '');
+  const [tscNumber, setTscNumber] = useState(userProfile.tscNumber || '');
+  const [schoolName, setSchoolName] = useState(userProfile.schoolName || '');
   const [role, setRole] = useState(userProfile.role || 'Teacher');
   const [county, setCounty] = useState(userProfile.county || 'Nairobi');
   const [subCounty, setSubCounty] = useState(userProfile.subCounty || 'Kasarani');
@@ -52,7 +51,7 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
 
     const updated: UserProfile = {
       ...userProfile,
-      email,
+      email: userProfile.email,
       teacherName: teacherName.trim(),
       tscNumber: tscNumber.trim(),
       schoolName: schoolName.trim(),
@@ -128,42 +127,7 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
           {activeTab === 'profile' ? (
             <form onSubmit={handleSave} className="space-y-4 text-xs">
               
-              {/* Account Credentials */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                  Account Registration & Login
-                </span>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div>
-                    <label className="font-semibold text-slate-700 dark:text-slate-300">Email Address</label>
-                    <div className="relative mt-1">
-                      <Mail className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
-                      <input
-                        type="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full h-9 pl-9 pr-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-slate-700 dark:text-slate-300">Password</label>
-                    <div className="relative mt-1">
-                      <Lock className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
-                      <input
-                        type="password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full h-9 pl-9 pr-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950 p-4"><p className="font-semibold">Signed-in account</p><p className="mt-1">{userProfile.email}</p><p className="mt-2 text-slate-500">These details personalise your documents. Signature lines are for school approval after export.</p></div>
 
               {/* Institution Details */}
               <div className="space-y-3">
@@ -180,7 +144,7 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
                       required
                       value={schoolName}
                       onChange={(e) => setSchoolName(e.target.value)}
-                      placeholder="e.g. Moi Forces Academy"
+                      placeholder="e.g. "
                       className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
@@ -194,7 +158,7 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
                       required
                       value={teacherName}
                       onChange={(e) => setTeacherName(e.target.value)}
-                      placeholder="e.g. Mwalimu Otieno"
+                      placeholder="e.g. "
                       className="mt-1 w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
@@ -206,7 +170,7 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
                       required
                       value={tscNumber}
                       onChange={(e) => setTscNumber(e.target.value)}
-                      placeholder="e.g. TSC-784291"
+                      placeholder="e.g. "
                       className="mt-1 w-full h-10 px-3 rounded-xl font-mono border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
@@ -286,7 +250,7 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
             <div className="space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Verified M-Pesa Downloads (Ksh. 20 / Item)
+                  Verified M-Pesa Downloads (Ksh. 15 / Item)
                 </span>
                 <span className="text-[11px] text-slate-500">Pay to 0707423879</span>
               </div>
@@ -296,7 +260,7 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
                   <Receipt className="h-8 w-8 mx-auto opacity-50" />
                   <p>No M-PESA receipts recorded yet.</p>
                   <p className="text-[11px] text-slate-500">
-                    Each downloaded document logs an official transaction code here for unlimited re-download.
+                    Payment history becomes available after a merchant payment service is connected. Each download costs KSh 15.
                   </p>
                 </div>
               ) : (

@@ -228,7 +228,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                             }
                           }}
                           className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
-                          title="Download Word (Ksh. 20)"
+                          title="Download Word (Ksh. 15)"
                         >
                           <Download className="h-3.5 w-3.5" />
                         </button>

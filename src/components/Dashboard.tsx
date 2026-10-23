@@ -59,7 +59,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </h1>
           
           <p className="text-sm text-emerald-100/90 leading-relaxed">
-            Generate KICD-compliant Schemes of Work, Lesson Plans, and KCSE revision materials.
+            Generate AI-assisted Schemes of Work, Lesson Plans, and KCSE revision materials.
             Export directly to <strong>Microsoft Word (.docx)</strong> or <strong>PDF (.pdf)</strong> with custom cover pages, TSC credentials, administrative sign-offs, and continuous pagination.
           </p>
 
@@ -92,7 +92,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="mt-6 pt-4 border-t border-white/15 flex flex-wrap items-center justify-between gap-3 text-xs text-emerald-100">
           <div className="flex items-center gap-2">
             <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
-            <span>Document Downloads: <strong>Ksh. 20 per item</strong> via M-PESA Send Money to <strong>0707423879</strong></span>
+            <span>Document Downloads: <strong>Ksh. 15 per item</strong> via M-PESA Send Money to <strong>0707423879</strong></span>
           </div>
           <span className="font-mono text-[11px] bg-black/20 px-2 py-0.5 rounded">
             Receipts: {payments.length} Unlocked
@@ -151,7 +151,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {payments.length}
           </p>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            Ksh. 20 M-Pesa verified
+            Ksh. 15 M-Pesa verified
           </p>
         </div>
 
@@ -213,7 +213,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 Schemes of Work Generator
               </h3>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                13-week standard KICD scheme matrix with term dates, half-term breaks, and lessons/week.
+                AI-assisted scheme matrix with term dates, half-term breaks, and lessons/week.
               </p>
               <div className="mt-3 flex items-center text-xs font-semibold text-emerald-600 dark:text-emerald-400 gap-1">
                 <span>Start Generating</span>
@@ -270,7 +270,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 Academic Year 2026 Calendar
               </h3>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Official Ministry term dates, half-term breaks, closing dates, and KCSE/KPSEA exams.
+                Sample term dates — confirm with your school, half-term breaks, closing dates, and KCSE/KPSEA exams.
               </p>
               <div className="mt-3 flex items-center text-xs font-semibold text-purple-600 dark:text-purple-400 gap-1">
                 <span>View Term Dates</span>

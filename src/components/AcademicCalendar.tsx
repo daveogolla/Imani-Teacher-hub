@@ -73,7 +73,7 @@ export const AcademicCalendar: React.FC<AcademicCalendarProps> = ({
             <span>Kenyan Academic Year 2026 Calendar</span>
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Ministry of Education Official Term Dates, Mid-Term Breaks, KPSEA & KCSE Examination Schedules.
+            Sample planning dates. Confirm term dates and examination schedules with your school before use.
           </p>
         </div>
 

@@ -1,1 +1,114 @@
 @import "tailwindcss";
+
+@theme {
+  --font-mono: "JetBrains Mono Variable", monospace;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+body {
+  font-family: "Plus Jakarta Sans Variable", sans-serif;
+}
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+button {
+  cursor: pointer;
+}
+:focus-visible {
+  outline: 3px solid #b89142;
+  outline-offset: 3px;
+}
+main {
+  background-image: radial-gradient(
+    ellipse at top right,
+    #b8914209,
+    transparent 65%
+  );
+}
+
+.planner-welcome {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border-radius: 1.5rem;
+  background: #174c3c;
+  color: #fffdf6;
+  background-image: radial-gradient(
+    ellipse at top right,
+    #b7cba422,
+    transparent 65%
+  );
+}
+.planner-step {
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  background: #dfece4;
+}
+.dark .planner-step {
+  background: #173c31;
+}
+.planner-card {
+  padding: 1.25rem;
+  border: 1px solid #e2e8e3;
+  border-radius: 1rem;
+  background: #fff;
+}
+.dark .planner-card {
+  background: #0f172a;
+  border-color: #334155;
+}
+.planner-icon {
+  padding: 0.7rem;
+  border-radius: 0.8rem;
+  color: #176247;
+  background: #e7f0e8;
+}
+.planner-field {
+  display: block;
+  min-width: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.planner-field > span {
+  display: block;
+  margin-bottom: 0.45rem;
+}
+.planner-field input,
+.planner-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid #cbd5d1;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 400;
+  background: #fff;
+  color: #172d25;
+  color-scheme: light;
+}
+.dark .planner-field input,
+.dark .planner-field select {
+  background: #020617;
+  color: #e2e8f0;
+  border-color: #475569;
+  color-scheme: dark;
+}
+.planner-page button {
+  min-height: 40px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
+}
