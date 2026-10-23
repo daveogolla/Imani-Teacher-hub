@@ -12,6 +12,8 @@
     "test": "bun test tests"
   },
   "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
     "@google/genai": "^2.4.0",
     "@netlify/database": "^2.0.1",
     "@netlify/identity": "^2.0.0",
