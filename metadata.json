@@ -1,0 +1,7 @@
+{
+  "name": "CBC HUB",
+  "description": "Kenya CBC/CBE Lesson Planner, Schemes of Work Generator, and Revision Material Hub with M-Pesa Downloads.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
